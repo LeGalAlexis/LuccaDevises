@@ -10,6 +10,7 @@ namespace LuccaDevises
     {
         private static List<Currency> _currencies;
         private static List<ConversionRate> _conversionPath;
+        private static List<List<ConversionRate>> _possibleConversionPaths;
 
         static void Main(string[] args)
         {
@@ -38,14 +39,16 @@ namespace LuccaDevises
             GetAndParseConversionRatesFile(filePath, out startCurrency, out startCurrencyAmount, out targetCurrency);
 
             _conversionPath = new List<ConversionRate>();
+            _possibleConversionPaths = new List<List<ConversionRate>>();
             if (_currencies.FirstOrDefault(c => c.Name == startCurrency) != null)
             {
-                if (FindNextStepInPath(_currencies.First(c => c.Name == startCurrency), targetCurrency))
+                FindNextStepInPath(_currencies.First(c => c.Name == startCurrency), targetCurrency);
+                if (_possibleConversionPaths.Count > 0)
                 {
                     decimal result = 1;
-                    foreach (ConversionRate conversionRate in _conversionPath)
+                    foreach (ConversionRate conversionRate in _possibleConversionPaths.OrderBy(l => l.Count).First())
                     {
-                        result = decimal.Round(conversionRate.Rate * result, 4);
+                        result = conversionRate.Rate * result;
                     }
                     Console.WriteLine(decimal.Round(result * startCurrencyAmount, 0));
                 }
@@ -66,13 +69,15 @@ namespace LuccaDevises
         /// <param name="startCurrency">Currency at the start of the step</param>
         /// <param name="targetCurrencyName">Final target currency</param>
         /// <returns>True if a path has been found, false otherwise</returns>
-        private static bool FindNextStepInPath(Currency startCurrency, string targetCurrencyName)
+        private static void FindNextStepInPath(Currency startCurrency, string targetCurrencyName)
         {
             // Check if final step is reachable
             if (startCurrency.ConversionRates.FirstOrDefault(c => c.TargetCurrencyName == targetCurrencyName) != null)
             {
                 _conversionPath.Add(startCurrency.ConversionRates.FirstOrDefault(c => c.TargetCurrencyName == targetCurrencyName));
-                return true;
+                _possibleConversionPaths.Add(new List<ConversionRate>(_conversionPath));
+                _conversionPath.Remove(startCurrency.ConversionRates.FirstOrDefault(c => c.TargetCurrencyName == targetCurrencyName));
+                return;
             }
 
             // Find other possibilities
@@ -82,16 +87,13 @@ namespace LuccaDevises
                 if(_conversionPath.Where(cp => cp.StartCurrencyName == rate.TargetCurrencyName).Count() == 0)
                 {
                     _conversionPath.Add(rate);
-                    if (FindNextStepInPath(_currencies.First(c => c.Name == rate.TargetCurrencyName), targetCurrencyName))
-                    {
-                        return true;
-                    }
+                    FindNextStepInPath(_currencies.First(c => c.Name == rate.TargetCurrencyName), targetCurrencyName);
+                    _conversionPath.Remove(rate);
                 }
             }
 
-            // this path can't reach final target, remove it
+            // this path is closed, remove it
             _conversionPath.RemoveAll(cr => cr.StartCurrencyName == startCurrency.Name);
-            return false;
         }
 
         /// <summary>
@@ -133,12 +135,12 @@ namespace LuccaDevises
                 {
                     Currency newCurrency = new Currency();
                     newCurrency.Name = currency2;
-                    newCurrency.ConversionRates.Add(new ConversionRate(currency2, currency1, decimal.Round(1 /rate,4)));
+                    newCurrency.ConversionRates.Add(new ConversionRate(currency2, currency1, decimal.Round(1/rate, 4)));
                     _currencies.Add(newCurrency);
                 }
                 else
                 {
-                    _currencies.FirstOrDefault(c => c.Name == currency2).ConversionRates.Add(new ConversionRate(currency2, currency1, decimal.Round(1 /rate,4)));
+                    _currencies.FirstOrDefault(c => c.Name == currency2).ConversionRates.Add(new ConversionRate(currency2, currency1, decimal.Round(1/rate, 4)));
                 }
             }
         }

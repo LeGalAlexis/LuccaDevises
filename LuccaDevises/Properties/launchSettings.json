@@ -2,7 +2,7 @@
   "profiles": {
     "LuccaDevises": {
       "commandName": "Project",
-      "commandLineArgs": ".\\test.txt"
+      "commandLineArgs": ".\\example-2.txt"
     }
   }
 }
